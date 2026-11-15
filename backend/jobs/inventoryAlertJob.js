@@ -20,10 +20,13 @@ function startInventoryAlertJob() {
     jobStarted = true;
 
     console.log('Đã khởi động hệ thống kiểm tra cảnh báo tồn kho.');
-    console.log('Tần suất kiểm tra: Mỗi phút.');
+    // Mac dinh moi phut (giu nhu cu). Tren Azure dat INVENTORY_ALERT_CRON (vd '0 8 * * *')
+    // de DB serverless duoc tam dung va khong ton quota.
+    const schedule = process.env.INVENTORY_ALERT_CRON || '* * * * *';
+    console.log(`Lịch kiểm tra (cron): ${schedule}`);
 
     cron.schedule(
-        '* * * * *',
+        schedule,
         async () => {
             console.log('\nĐang kiểm tra cảnh báo tồn kho...');
 

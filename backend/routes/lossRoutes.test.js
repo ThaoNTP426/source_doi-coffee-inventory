@@ -173,7 +173,7 @@ test('PATCH /api/losses/:id/cancel rolls back if SQL does not confirm the reques
 });
 
 test('POST /api/losses accepts every frontend reason and binds it as Unicode', async () => {
-    const frontendSource = fs.readFileSync(path.join(__dirname, '../../src/data.js'), 'utf8');
+    const frontendSource = fs.readFileSync(path.join(__dirname, '../../src/pages/LossSlips.jsx'), 'utf8');
     const reasonList = frontendSource.match(/LOSS_REASONS\s*=\s*\[([^\]]+)\]/)?.[1];
     assert.ok(reasonList, 'Frontend LOSS_REASONS list must exist.');
     const frontendReasons = [...reasonList.matchAll(/'([^']+)'/g)].map((match) => match[1]);

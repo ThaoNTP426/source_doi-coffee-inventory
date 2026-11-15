@@ -4,7 +4,8 @@ import { AlertTriangle, CircleCheck, Plus, X } from 'lucide-react'
 import { useStore } from '../store.jsx'
 import { compareCodes } from '../utils/codeSort.js'
 import { DataTable, RowActions, SearchBox, Select, Modal, Field, ConfirmModal, fmtNum, fmtDate, todayISO, useToast } from '../components/ui.jsx'
-import { LOSS_REASONS } from '../data.js'
+
+const LOSS_REASONS = ['Đổ vỡ/rơi vãi', 'Hư hỏng', 'Hết hạn', 'Chế biến dư', 'Khác']
 
 function SlipForm({ initial, onSave, onClose }) {
   const s = useStore()
