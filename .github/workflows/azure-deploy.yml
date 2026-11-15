@@ -109,6 +109,23 @@ jobs:
       name: production
       url: ${{ steps.deploy.outputs.webapp-url }}
     steps:
+      - name: Check Azure credentials
+        shell: bash
+        env:
+          PUBLISH_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+        run: |
+          missing=0
+          if [ -z "$PUBLISH_PROFILE" ]; then
+            echo "::error::Thieu secret AZURE_WEBAPP_PUBLISH_PROFILE (Settings > Secrets and variables > Actions > Secrets)"
+            missing=1
+          fi
+          if [ -z "$WEBAPP_NAME" ]; then
+            echo "::error::Thieu variable AZURE_WEBAPP_NAME (Settings > Secrets and variables > Actions > Variables)"
+            missing=1
+          fi
+          exit $missing
+
       - name: Download backend artifact
         uses: actions/download-artifact@v4
         with:
@@ -166,6 +183,15 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
+      - name: Check Static Web Apps token
+        env:
+          SWA_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+        run: |
+          if [ -z "$SWA_TOKEN" ]; then
+            echo "::error::Thieu secret AZURE_STATIC_WEB_APPS_API_TOKEN (Settings > Secrets and variables > Actions > Secrets)"
+            exit 1
+          fi
+
       - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
@@ -179,4 +205,3 @@ jobs:
           action: upload
           app_location: dist
           skip_app_build: true
-          skip_api_build: true

@@ -9,3 +9,7 @@ backend/.env.*
 *.log
 .DS_Store
 Thumbs.db
+
+# Azure publish profile (chua mat khau deploy)
+*.PublishSettings
+*.publishsettings
