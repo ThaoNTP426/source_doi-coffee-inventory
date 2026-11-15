@@ -1,6 +1,8 @@
 # Build, test và deploy Đợi Coffee lên Azure
 #   - Frontend (React + Vite)  -> Azure Static Web Apps
-#   - Backend  (Express + SQL) -> Azure App Service (Windows, vì msnodesqlv8 cần ODBC Driver)
+#   - Backend  (Express + SQL) -> Azure App Service (Linux, driver mssql/tedious)
+#     App Service > Environment variables can co: DB_SERVER, DB_NAME, DB_USER, DB_PASSWORD,
+#     JWT_SECRET, EMAIL_USER, EMAIL_PASS, EMAIL_TO
 #
 # Cần cấu hình trong GitHub repo > Settings > Secrets and variables > Actions:
 #   Secrets:
@@ -34,8 +36,7 @@ jobs:
   # ---------------------------------------------------------------- BACKEND
   backend-build-test:
     name: Backend - build & test
-    # Build trên Windows để binary native của msnodesqlv8 khớp với App Service Windows
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
@@ -49,46 +50,14 @@ jobs:
           cache-dependency-path: backend/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        # msnodesqlv8 chi dung cho Windows Auth o may local, khong can tren Azure Linux
+        run: npm ci --omit=optional
 
       - name: Run tests
         run: npm test
 
       - name: Prune dev dependencies
-        run: npm prune --omit=dev
-
-      - name: Add web.config for iisnode
-        shell: pwsh
-        run: |
-          @'
-          <?xml version="1.0" encoding="utf-8"?>
-          <configuration>
-            <system.webServer>
-              <webSocket enabled="false" />
-              <handlers>
-                <add name="iisnode" path="server.js" verb="*" modules="iisnode" />
-              </handlers>
-              <rewrite>
-                <rules>
-                  <rule name="NodeApp">
-                    <match url="/*" />
-                    <action type="Rewrite" url="server.js" />
-                  </rule>
-                </rules>
-              </rewrite>
-              <security>
-                <requestFiltering>
-                  <hiddenSegments>
-                    <remove segment="bin" />
-                    <add segment="node_modules" />
-                  </hiddenSegments>
-                </requestFiltering>
-              </security>
-              <httpErrors existingResponse="PassThrough" />
-              <iisnode node_env="production" />
-            </system.webServer>
-          </configuration>
-          '@ | Set-Content -Path web.config -Encoding utf8
+        run: npm prune --omit=dev --omit=optional
 
       - name: Upload backend artifact
         uses: actions/upload-artifact@v4
@@ -104,7 +73,7 @@ jobs:
     name: Backend - deploy to App Service
     needs: backend-build-test
     if: github.event_name != 'pull_request'
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     environment:
       name: production
       url: ${{ steps.deploy.outputs.webapp-url }}
@@ -182,6 +151,9 @@ jobs:
     needs: [frontend-build, backend-deploy]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    environment:
+      name: frontend
+      url: ${{ steps.swa.outputs.static_web_app_url }}
     steps:
       - name: Check Static Web Apps token
         env:
@@ -199,6 +171,7 @@ jobs:
           path: dist
 
       - name: Deploy to Azure Static Web Apps
+        id: swa
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}

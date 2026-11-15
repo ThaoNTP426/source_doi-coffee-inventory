@@ -103,20 +103,20 @@ router.post('/', async (req, res) => {
     }
 
     const pool = await poolPromise;
-    const transaction = new (require('mssql/msnodesqlv8').Transaction)(pool);
+    const transaction = new (require('../config/sql').Transaction)(pool);
 
     try {
         await transaction.begin();
 
         const request = transaction.request();
 
-        request.input('tenNVL', require('mssql/msnodesqlv8').NVarChar(100), tenNVL.trim());
-        request.input('nhomNVL', require('mssql/msnodesqlv8').NVarChar(50), nhomNVL.trim());
-        request.input('maNCC', require('mssql/msnodesqlv8').Char(7), maNCC.trim());
-        request.input('donViTinh', require('mssql/msnodesqlv8').NVarChar(20), donViTinh.trim());
-        request.input('donViQuyDoi', require('mssql/msnodesqlv8').NVarChar(20), donViQuyDoi || null);
-        request.input('tyLeQuyDoi', require('mssql/msnodesqlv8').Decimal(10, 2), tyLeQuyDoi ?? null);
-        request.input('mucTonToiThieu', require('mssql/msnodesqlv8').Int, Number(mucTonToiThieu));
+        request.input('tenNVL', require('../config/sql').NVarChar(100), tenNVL.trim());
+        request.input('nhomNVL', require('../config/sql').NVarChar(50), nhomNVL.trim());
+        request.input('maNCC', require('../config/sql').Char(7), maNCC.trim());
+        request.input('donViTinh', require('../config/sql').NVarChar(20), donViTinh.trim());
+        request.input('donViQuyDoi', require('../config/sql').NVarChar(20), donViQuyDoi || null);
+        request.input('tyLeQuyDoi', require('../config/sql').Decimal(10, 2), tyLeQuyDoi ?? null);
+        request.input('mucTonToiThieu', require('../config/sql').Int, Number(mucTonToiThieu));
 
         const result = await request.query(`
             IF NOT EXISTS (
@@ -237,7 +237,7 @@ router.put('/:maNVL', async (req, res) => {
         });
     }
 
-    const sql = require('mssql/msnodesqlv8');
+    const sql = require('../config/sql');
     const pool = await poolPromise;
     const transaction = new sql.Transaction(pool);
 
@@ -348,7 +348,7 @@ router.delete('/:maNVL', async (req, res) => {
             });
         }
 
-        const sql = require('mssql/msnodesqlv8');
+        const sql = require('../config/sql');
         const pool = await poolPromise;
 
         // Cap nhat trang thai xoa

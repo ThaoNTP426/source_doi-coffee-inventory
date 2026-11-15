@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const sqlModulePath = require.resolve('mssql/msnodesqlv8');
+const sqlModulePath = require.resolve('../config/sql');
 const databaseModulePath = require.resolve('../config/database');
 const capturedInputs = [];
 const capturedQueries = [];

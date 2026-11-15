@@ -3,7 +3,7 @@
 
 const express = require('express');
 const router = express.Router();
-const sql = require('mssql/msnodesqlv8');
+const sql = require('../config/sql');
 
 const { poolPromise } = require('../config/database');
 const { decimalToUnits, unitsToNumber } = require('../utils/decimal4');
