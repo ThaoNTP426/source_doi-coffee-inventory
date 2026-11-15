@@ -113,7 +113,7 @@ jobs:
         shell: bash
         env:
           PUBLISH_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+          WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME || 'coffee' }}
         run: |
           missing=0
           if [ -z "$PUBLISH_PROFILE" ]; then
@@ -136,7 +136,7 @@ jobs:
         id: deploy
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          app-name: ${{ vars.AZURE_WEBAPP_NAME || 'coffee' }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: backend
 
@@ -158,7 +158,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_API_URL: ${{ vars.VITE_API_URL || 'https://coffee-ezedb3b2erejhhcn.eastasia-01.azurewebsites.net/api' }}
 
       - name: Add SPA routing config for Static Web Apps
         run: |
