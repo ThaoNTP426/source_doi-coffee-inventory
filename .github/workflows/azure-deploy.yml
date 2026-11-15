@@ -1,0 +1,182 @@
+# Build, test và deploy Đợi Coffee lên Azure
+#   - Frontend (React + Vite)  -> Azure Static Web Apps
+#   - Backend  (Express + SQL) -> Azure App Service (Windows, vì msnodesqlv8 cần ODBC Driver)
+#
+# Cần cấu hình trong GitHub repo > Settings > Secrets and variables > Actions:
+#   Secrets:
+#     AZURE_WEBAPP_PUBLISH_PROFILE     - tải từ Azure Portal > App Service > "Download publish profile"
+#     AZURE_STATIC_WEB_APPS_API_TOKEN  - Azure Portal > Static Web App > "Manage deployment token"
+#   Variables:
+#     AZURE_WEBAPP_NAME                - tên App Service của backend (vd: doi-coffee-api)
+#     VITE_API_URL                     - URL public của backend, kết thúc bằng /api
+#                                        (vd: https://doi-coffee-api.azurewebsites.net/api)
+
+name: Build, Test & Deploy to Azure
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: azure-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22.x'
+
+jobs:
+  # ---------------------------------------------------------------- BACKEND
+  backend-build-test:
+    name: Backend - build & test
+    # Build trên Windows để binary native của msnodesqlv8 khớp với App Service Windows
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Prune dev dependencies
+        run: npm prune --omit=dev
+
+      - name: Add web.config for iisnode
+        shell: pwsh
+        run: |
+          @'
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <system.webServer>
+              <webSocket enabled="false" />
+              <handlers>
+                <add name="iisnode" path="server.js" verb="*" modules="iisnode" />
+              </handlers>
+              <rewrite>
+                <rules>
+                  <rule name="NodeApp">
+                    <match url="/*" />
+                    <action type="Rewrite" url="server.js" />
+                  </rule>
+                </rules>
+              </rewrite>
+              <security>
+                <requestFiltering>
+                  <hiddenSegments>
+                    <remove segment="bin" />
+                    <add segment="node_modules" />
+                  </hiddenSegments>
+                </requestFiltering>
+              </security>
+              <httpErrors existingResponse="PassThrough" />
+              <iisnode node_env="production" />
+            </system.webServer>
+          </configuration>
+          '@ | Set-Content -Path web.config -Encoding utf8
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-app
+          path: |
+            backend
+            !backend/**/*.test.js
+            !backend/.env*
+          include-hidden-files: false
+
+  backend-deploy:
+    name: Backend - deploy to App Service
+    needs: backend-build-test
+    if: github.event_name != 'pull_request'
+    runs-on: windows-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.webapp-url }}
+    steps:
+      - name: Download backend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-app
+          path: backend
+
+      - name: Deploy to Azure Web App
+        id: deploy
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: backend
+
+  # --------------------------------------------------------------- FRONTEND
+  frontend-build:
+    name: Frontend - build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+
+      - name: Add SPA routing config for Static Web Apps
+        run: |
+          cat > dist/staticwebapp.config.json <<'EOF'
+          {
+            "navigationFallback": {
+              "rewrite": "/index.html",
+              "exclude": ["/assets/*", "*.{css,js,png,jpg,jpeg,gif,svg,ico,woff,woff2}"]
+            }
+          }
+          EOF
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+
+  frontend-deploy:
+    name: Frontend - deploy to Static Web Apps
+    needs: [frontend-build, backend-deploy]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: dist
+          skip_app_build: true
+          skip_api_build: true
